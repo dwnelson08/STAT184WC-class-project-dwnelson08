@@ -8,7 +8,7 @@ output:
     fig_height: 7
     fig_width: 10
 ---
-**How does the payroll of a Major League Baseball (MLB) team influence its performance, as measured by wins and hitting average?**
+**How does the payroll and elevation of a Major League Baseball (MLB) team influence its performance, as measured by wins and hitting average?**
 
 ## Data Sources
 
@@ -205,6 +205,10 @@ ggplot(combined_data, aes(x = reorder(team_id, avg_hit_avg), y = avg_hit_avg, fi
 
 ### Observation 1
 - **Performance Data**: Correlation Between Payroll and Performance: There appears to be a general trend where divisions with higher average payrolls also have higher average hit averages. This suggests that teams with more financial resources may be able to invest in better players, leading to improved performance."
+
+### Observation 2
+- **Performance Data**: Analysis of the third chart indicates that teams like the Boston Red Sox (BOS) and Los Angeles Dodgers (LAD) have achieved excellent hitting results with higher payrolls. Conversely, teams like the New York Mets (NYM) havand New York Yankees (NYY) have struggled to see significant results despite extremely high payrolls.Furthermore, the very low payroll teams continue to see lower hitting averages. 
+- **Efficient Teams**: Teams such as the Atlanta Braves (ATL), Colorado Rockies (COL), Washington Nationals (WSH), and Houston Astros (HOU) have achieved extraordinary results with middle of the road payrolls. This suggests that elevation may play a role in batting averages, as COL and ATL are among the higher elevation teams. However, HOU, being at a lower elevation, indicates that they are able to get high productivity from less expensive players, possibly due to a strong player development program.
 
 
 
