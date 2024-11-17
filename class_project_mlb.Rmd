@@ -1,0 +1,210 @@
+---
+title: "MLB Data Analysis"
+subtitle: "STAT 184 Class Project"
+author: "Dakota Nelson"
+date: "11/10/2024"
+output: 
+  html_notebook:
+    fig_height: 7
+    fig_width: 10
+---
+**How does the payroll of a Major League Baseball (MLB) team influence its performance, as measured by wins and hitting average?**
+
+## Data Sources
+
+### Dataset 1: Team Elevations
+- **Source**: I found this data on a public webpage called Baseballjudgements.com
+- **Collected/Maintained by**: The webpage does not identify who collected or maintains this data
+- **Collection Date and Purpose**: I don't have a date for when the data was collected. However, many baseball statisticians find elevation very intriguing when looking at performance and correlations which is probably why this page was created. 
+- **Case Representation**: Each case represents a team and its elevation.
+- **Total Cases**: 30
+- **Variables Used**:
+  - `Team`: Team abbreviation
+  - `Elevation`: Elevation in feet
+
+### Dataset 2: Team Performance
+- **Source**: The data was aggregated by my from several different sources on the web. They include Baseball Reference and MLB.com
+- **Collected/Maintained by**: MLB collects and maintains this data set and they make it public for people to analyze.
+- **Collection Date and Purpose**: The data goes back to 2015 and is through 2024. The purpose is for teams and fans to evaluate and draw conclusions for baseball front offices to make decisions about player personnel. 
+- **Case Representation**: Each case represents a team's performance metrics for any given year from 2015 - 2024.
+- **Total Cases**: 300
+- **Variables Used**:
+  - `team`: Team name
+  - `team_id`: Team abbreviation
+  - `league`: The league in which the team plays, either NL or AL
+  - `division`: The division in which the team competes, either east, west, or central
+  - `wins`: Number of wins
+  - `payroll_total`: Total payroll in dollars
+  - `avg_hit_angle`: Average hit angle
+  - `avg`: Batting average
+  - `slg`: Slugging percentage
+
+
+# Set Up
+```{r}
+#load libraries
+install.packages("rvest")
+install.packages("xml2")
+library(rvest)
+library(xml2)
+library(tidyverse)
+library(mosaic)
+library(dplyr)
+library(lubridate)
+library(readr)
+```
+
+```{r}
+#load mlb data csv file
+mlb_raw_data <- read_csv("mlb_raw_data.csv")
+
+# Rename the column 'avg' to 'hit_avg'
+mlb_raw_data <- mlb_raw_data %>%
+  rename(hit_avg = avg)
+
+View(mlb_raw_data)
+```
+```{r}
+# Read the HTML content from the webpage
+page <- read_html("https://baseballjudgments.tripod.com/id62.html")
+
+# Extract the table
+tableList <- page %>%
+  html_nodes(css = "table") %>%
+  html_table(fill = TRUE)
+
+# Check if any tables were found
+if (length(tableList) > 0) {
+  # Get the first table
+  raw_data <- tableList[[6]]
+  
+  # Display the first few rows of the raw data
+  print(head(raw_data))
+  
+  # Clean the data
+  elevation_data <- raw_data %>%
+    # Remove unnecessary rows (first 4 rows and any row with NA in X1)
+    slice(-1:-4) %>%
+    filter(!is.na(X1) & X1 != "") %>%
+    # Rename columns
+    rename(Team = X1, Elevation = X2)
+  
+  # Display the cleaned data
+  print(elevation_data)
+} else {
+  print("No tables found on the webpage.")
+}
+```
+```{r}
+# Rename ARI to AZ, WAS to WSH, and ANA to LAA in the elevation_data dataset
+elevation_data <- elevation_data %>%
+  mutate(Team = case_when(
+    Team == "ARI" ~ "AZ",
+    Team == "WAS" ~ "WSH",
+    Team == "ANA" ~ "LAA",
+    TRUE ~ Team
+  ))
+
+# View the updated elevation_data
+head(elevation_data)
+
+```
+
+```{r}
+view(elevation_data)
+```
+
+```{r}
+# Ensure the team names match in both datasets
+elevation_data$Team <- toupper(elevation_data$Team)  # Convert to uppercase to match team_id
+
+# Join the datasets
+combined_data <- left_join(mlb_raw_data, elevation_data, by = c("team_id" = "Team"))
+
+# View the combined data
+view(combined_data)
+```
+
+```{r}
+glimpse(combined_data)
+```
+
+
+
+
+```{r}
+# Convert payroll_total to numeric
+mlb_raw_data$payroll_total <- as.numeric(gsub("[\\$,]", "", mlb_raw_data$payroll_total))
+
+
+# Calculate the average payroll and hit_avg by league and division
+summary_table <- mlb_raw_data %>%
+  group_by(league, division) %>%
+  summarise(
+    avg_payroll = mean(payroll_total, na.rm = TRUE),
+    avg_hit_avg = mean(hit_avg, na.rm = TRUE)
+  ) %>%
+  arrange(league, division)
+
+# Print the summary table
+print(summary_table)
+```
+```{r}
+# Convert Elevation to numeric
+elevation_data$Elevation <- as.numeric(elevation_data$Elevation)
+
+# Sort the data by Elevation in ascending order
+elevation_data <- elevation_data %>%
+  arrange(Elevation)
+
+# Plotting team vs elevation with lower elevations on the left and higher on the right
+ggplot(elevation_data, aes(x = reorder(Team, Elevation), y = Elevation)) +
+  geom_bar(stat = "identity", fill = "blue", color = "black") +
+  labs(title = "Team Elevations", x = "Team", y = "Elevation (feet)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+```{r}
+# Convert payroll_rank to numeric if it's not already
+mlb_raw_data$payroll_rank <- as.numeric(mlb_raw_data$payroll_rank)
+
+# Calculate the average payroll rank for each team
+avg_payroll_rank <- mlb_raw_data %>%
+  group_by(team_id) %>%
+  summarise(avg_payroll_rank = mean(payroll_rank, na.rm = TRUE)) %>%
+  arrange(avg_payroll_rank)  # Sort by average payroll rank
+
+# Plotting the average payroll rank by team with lower ranks to the left and higher to the right
+ggplot(avg_payroll_rank, aes(x = reorder(team_id, avg_payroll_rank), y = avg_payroll_rank)) +
+  geom_bar(stat = "identity", fill = "blue", color = "black") +
+  labs(title = "Average Payroll Rank by Team (2015 - 2024)", x = "Team", y = "Average Payroll Rank") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+```{r}
+# Remove the dollar signs and commas from payroll_total and convert to numeric
+combined_data$payroll_total <- as.numeric(gsub("[\\$,]", "", combined_data$payroll_total))
+
+# Calculate the average payroll and average batting average for each team
+combined_data <- combined_data %>%
+  group_by(team_id) %>%
+  mutate(avg_payroll = mean(payroll_total, na.rm = TRUE),
+         avg_hit_avg = mean(hit_avg, na.rm = TRUE))
+
+# Create the bar chart with adjusted y-axis scale
+ggplot(combined_data, aes(x = reorder(team_id, avg_hit_avg), y = avg_hit_avg, fill = avg_payroll)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradient(low = "blue", high = "red") +
+  labs(title = "Average Batting Average by Team with Average Payroll Color Gradient",
+       x = "Team",
+       y = "Average Batting Average",
+       fill = "Average Payroll") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ylim(0, 0.28)  # Adjust the y-axis scale
+```
+
+### Observation 1
+- **Performance Data**: Correlation Between Payroll and Performance: There appears to be a general trend where divisions with higher average payrolls also have higher average hit averages. This suggests that teams with more financial resources may be able to invest in better players, leading to improved performance."
+
+
+
